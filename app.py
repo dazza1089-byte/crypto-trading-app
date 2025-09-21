@@ -3,7 +3,7 @@ import ccxt
 import pandas as pd
 import numpy as np
 
-# --- Indicators ---
+# --- Indicator functions ---
 def rsi(series, period=14):
     delta = series.diff()
     up = delta.clip(lower=0)
@@ -22,7 +22,7 @@ def stochastic_rsi(close, period=14, k=3, d=3):
     stoch_d = stoch_k.rolling(d).mean()
     return stoch_k, stoch_d
 
-# --- Fetch OHLCV ---
+# --- Fetch OHLCV from Binance ---
 @st.cache_data
 def fetch_data(symbol="BTC/USDT", timeframe="1h", limit=200):
     exch = ccxt.binance()
@@ -31,8 +31,9 @@ def fetch_data(symbol="BTC/USDT", timeframe="1h", limit=200):
     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
     return df
 
-# --- UI ---
+# --- Streamlit UI ---
 st.title("📊 Crypto Trading Dashboard")
+
 symbol = st.selectbox("Choose symbol", ["BTC/USDT","ETH/USDT","SOL/USDT"])
 timeframe = st.selectbox("Timeframe", ["15m","1h","4h","1d"])
 
@@ -41,6 +42,21 @@ df["RSI"] = rsi(df["close"])
 df["StochK"], df["StochD"] = stochastic_rsi(df["close"])
 df["VolMA"] = df["volume"].rolling(20).mean()
 
+# --- Signals ---
+df["Buy"] = (df["RSI"] < 30) & (df["StochK"] > df["StochD"]) & (df["volume"] > df["VolMA"])
+df["Sell"] = (df["RSI"] > 70) | (df["StochK"] < df["StochD"])
+
+# --- Charts ---
+st.subheader(f"{symbol} Price")
 st.line_chart(df.set_index("timestamp")[["close"]])
+
+st.subheader("Relative Strength Index (RSI)")
 st.line_chart(df.set_index("timestamp")[["RSI"]])
+
+st.subheader("Stochastic RSI")
 st.line_chart(df.set_index("timestamp")[["StochK","StochD"]])
+
+# --- Signals Table ---
+st.subheader("Trading Signals")
+signals = df[["timestamp","close","RSI","StochK","StochD","Buy","Sell"]].dropna().tail(20)
+st.dataframe(signals)
