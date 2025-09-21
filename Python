@@ -1,0 +1,8 @@
+import ccxt
+
+exchange = ccxt.binance()
+try:
+    exchange.fetch_ticker('BTC/USDT')
+except ccxt.base.errors.ExchangeNotAvailable as e:
+    print("Exchange is not available:", e)
+    # Retry logic or fallback here
